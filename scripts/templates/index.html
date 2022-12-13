@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <canvas id="canvas" width="120" height="120"></canvas>
+    <input type="text" id="text" />
+    <button onclick="capture()">Capture</button>
+
+    <form
+      action="/upload"
+      method="post"
+      enctype="multipart/form-data"
+      id="image-data"
+    >
+      <input type="text" name="picture" style="display: none" />
+      <input type="submit" value="Upload" />
+    </form>
+
+    <script>
+      function capture() {
+        const text = document.getElementById("text").value[0];
+        drawText(text);
+
+        /** @type {HTMLCanvasElement} */
+        const canvas = document.getElementById("canvas");
+        const data = canvas.toDataURL("image/png");
+        console.log(data);
+        document.getElementById("image-data").picture.value =
+          encodeURIComponent(data);
+      }
+
+      function drawText(text) {
+        // HTMLのキャンバス要素を取得します
+        var canvas = document.getElementById("canvas");
+
+        // キャンバスに描画するためのコンテキストを取得します
+        var ctx = canvas.getContext("2d");
+        ctx.rect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        const fontSize = 110;
+
+        // 文字を描画する場所の座標を指定します
+        var x = (canvas.width - fontSize) / 2;
+        var y = fontSize;
+
+        // 文字を描画します
+        ctx.font = `${fontSize}px serif`;
+        ctx.fillStyle = "#000000";
+        ctx.fillText(text, x, y);
+      }
+    </script>
+  </body>
+</html>

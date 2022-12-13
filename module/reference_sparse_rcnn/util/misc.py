@@ -19,7 +19,11 @@ from torch import Tensor
 # needed due to empty tensor bug in pytorch and torchvision 0.5
 import torchvision
 
-if float(torchvision.__version__[:3]) < 0.7:
+def is_version_under_0_7(version: str):
+    nums = version.split('.')
+    return nums[0] == "0" and int(nums[1]) < 7
+
+if is_version_under_0_7(torchvision.__version__):
     from torchvision.ops import _new_empty_tensor
     from torchvision.ops.misc import _output_size
 
@@ -456,7 +460,7 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
     This will eventually be supported natively by PyTorch, and this
     class can go away.
     """
-    if float(torchvision.__version__[:3]) < 0.7:
+    if is_version_under_0_7(torchvision.__version__):
         if input.numel() > 0:
             return torch.nn.functional.interpolate(
                 input, size, scale_factor, mode, align_corners

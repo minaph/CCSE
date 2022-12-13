@@ -1,25 +1,16 @@
 import logging
-import os
-import random
-from os.path import basename
 
 import cv2
-from detectron2.data import DatasetCatalog
 from detectron2.engine import DefaultPredictor
-from detectron2.evaluation import COCOEvaluator
-from detectron2.utils.visualizer import Visualizer
-from tqdm import tqdm
+import numpy as np
 
 from common.cmd_parser import parse_cmd_arg
-from common.utils import plt_show, join, mkdirs_if_not_exist
 from initializer.instance_initializer import InferenceInstanceInitializer
-from module.instance.evaluator import EnhancedCOCOEvaluator
-from module.instance.trainer import TrainerWithoutHorizontalFlip
-from pre_process.pre_process import read_to_gray_scale
 
-from detectron2 import model_zoo
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, render_template
+from urllib.parse import unquote_plus
+from urllib.request import urlopen
 
 app = Flask(__name__)
 
@@ -41,45 +32,42 @@ def model_init(init: InferenceInstanceInitializer):
     predictor = DefaultPredictor(config)
 
 
-def real_check(image_path, output_path):
-    im = read_to_gray_scale(image_path)
-    # plt_show(im[:, :, ::-1], save_filename=join(visualize_input_path, basename(image_path)))
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-    outputs = predictor(im)
 
-    # look at the outputs. See https://detectron2.readthedocs.io/tutorials/models.html#model-output-format for
-    # specification
-    # print(outputs["instances"].pred_classes)
-    # print(outputs["instances"].pred_boxes)
+@app.route('/upload', methods=['POST'])
+def upload():
+    logging.info("Receive request")
 
-    # We can use `Visualizer` to draw the predictions on the image.
-    v = Visualizer(im[:, :, ::-1], metadata=dataset_metadata, scale=5.0)
+    img = request.form['picture']
+    img = unquote_plus(img)
+    logging.info("Request image_path: {0}".format(img))
+
+
+    with urlopen(img) as response:
+        img = response.file.read()
+    img = np.frombuffer(img, dtype=np.uint8)
+    img = cv2.imdecode(img, cv2.IMREAD_GRAYSCALE)
+
+    img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    img = cv2.boxFilter(img, -1, (3, 3), normalize=True)
+    img = np.array(img)
+    img = np.stack([img, img, img], axis=2)
+
+    outputs = predictor(img)
     instances = outputs["instances"].to("cpu")
-    out = v.draw_instance_predictions(instances)
-    plt_show(out.get_image()[:, :, ::-1], save_filename=output_path)
 
     dict_output = {
         "image_size": instances.image_size,
         "pred_boxes": instances.pred_boxes.tensor.numpy().tolist(),
         "scores": instances.scores.numpy().tolist(),
         "pred_classes": instances.pred_classes.numpy().tolist(),
-        "pred_masks": instances.pred_masks.numpy().tolist()
+        "pred_masks": instances.pred_masks.numpy().astype(np.uint8).tolist()
     }
+    logging.info(dict_output)
     return dict_output
-
-
-@app.route('/check', methods=['POST'])
-def check():
-    logging.info("Receive request")
-    if request.method == 'POST':
-        # we will get the file from the request
-        image_path = request.form['image_path']
-        output_path = request.form['output_path']
-        logging.info("Request image_path: {0}".format(image_path))
-        logging.info("Request output_path: {0}".format(output_path))
-        outputs = real_check(image_path, output_path)
-        logging.info(outputs)
-        return jsonify(outputs)
 
 
 if __name__ == '__main__':
