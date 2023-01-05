@@ -15,8 +15,14 @@ from common.utils import plt_show, join
 
 from initializer.instance_initializer import InstanceInitializer
 
+import optuna
+from optuna.samplers import TPESampler
+from optuna.pruners import HyperbandPruner
 
-def main(init: InstanceInitializer):
+import copy
+
+
+def main(init: InstanceInitializer, study: optuna.study.Study = None, trial: optuna.trial.Trial = None):
     config = init.config
     logger = logging.getLogger('detectron2')
 
@@ -31,7 +37,7 @@ def main(init: InstanceInitializer):
                       num_vis=config.NUM_VIS)
 
     # train and evaluate the model
-    train_and_evaluate(init, config)
+    train_and_evaluate(init, config, study, trial)
 
     # visualize the prediction
     # predictor = DefaultPredictor(config)
@@ -74,10 +80,10 @@ def visualize_prediction(predictor, dataset_name, dataset_metadata, OUTPUT_DIR, 
         plt_show(out.get_image()[:, :, ::-1], join(visualize_prediction_path, os.path.basename(d['file_name'])))
 
 
-def train_and_evaluate(init, config):
+def train_and_evaluate(init, config, study: optuna.study.Study = None, trial: optuna.trial.Trial = None):
     evaluator = COCOEvaluator(init.val_set_name, config.TASKS, False, output_dir=config.OUTPUT_DIR)
 
-    trainer = TrainerWithoutHorizontalFlip(config)
+    trainer = TrainerWithoutHorizontalFlip(config, study, trial)
     trainer.resume_or_load(resume=False)
     trainer.train()
     trainer.test(config, model=trainer.model, evaluators=[evaluator])
@@ -99,4 +105,69 @@ if __name__ == '__main__':
     initializer.logger = None
     num_gpu = len(initializer.config.GPU_IDS)
 
-    launch(main_func=main, num_gpus_per_machine=num_gpu, dist_url='auto', args=(initializer,))
+    train_set_name = initializer.train_set_name
+    val_set_name = initializer.val_set_name
+    dataset_metadata = initializer.dataset_metadata
+
+    n_trials = initializer.config.OPTUNA.N_TRIALS
+
+    if n_trials > 0:
+        study = optuna.study.create_study(
+            storage=initializer.config.OPTUNA.STORAGE, 
+            sampler=TPESampler(), 
+            pruner=HyperbandPruner(),
+            load_if_exists=True,
+            direction="maximize",
+            study_name=initializer.config.OPTUNA.STUDY_NAME
+        )
+
+        for i in range(n_trials):
+            initializer = InstanceInitializer(args.config)
+            initializer.logger = None
+
+            initializer.train_set_name = train_set_name
+            initializer.val_set_name = val_set_name
+            initializer.dataset_metadata = dataset_metadata
+
+            trial = study.ask()
+            lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+            initializer.config.SOLVER.BASE_LR = lr
+            try:
+                launch(main_func=main, num_gpus_per_machine=num_gpu, dist_url='auto', args=(initializer, study, trial))
+            except optuna.exceptions.TrialPruned:
+                print("Trial is pruned.")
+                study.tell(trial, optuna.trial.TrialState.PRUNED)
+            except KeyboardInterrupt as e:
+                study.tell(trial, optuna.trial.TrialState.FAIL)
+                raise e
+            except Exception as e:
+                study.tell(trial, optuna.trial.TrialState.FAIL)
+                raise e
+            # else:
+            #     study.tell(trial, optuna.trial.TrialState.COMPLETE)
+        
+        print("Best trial:")
+        print("  Value: ", study.best_trial.value)
+        print("  Params: ", study.best_trial.params)
+    
+    else:
+        decay_late = initializer.config.SOLVER.WEIGHT_DECAY
+        while True:
+            initializer = InstanceInitializer(args.config)
+            initializer.logger = None
+
+            initializer.train_set_name = train_set_name
+            initializer.val_set_name = val_set_name
+            initializer.dataset_metadata = dataset_metadata
+
+            initializer.config.SOLVER.WEIGHT_DECAY = decay_late
+            try:
+                launch(main_func=main, num_gpus_per_machine=num_gpu, dist_url='auto', args=(initializer,))
+            except FloatingPointError as e:
+                if initializer.config.SOLVER.RESTART_IF_NAN:
+                    decay_late += 0.0001
+                    print(f"\n=== Restarting training due to NaN loss. decay_late: {decay_late:.4} ===\n")
+                    continue
+                else:
+                    raise e
+

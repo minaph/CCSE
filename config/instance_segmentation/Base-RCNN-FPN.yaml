@@ -1,3 +1,7 @@
+OPTUNA:
+  N_TRIALS: 0  # No optuna if 0 (defualt)
+  STORAGE: null  # default null
+  STUDY_NAME: null  # default null
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   BACKBONE:

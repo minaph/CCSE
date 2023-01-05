@@ -11,6 +11,19 @@ from .modeling.roi_heads import MaskRCNNConvAttentionUpsampleHead
 from .modeling.roi_heads import RepulsionROIHeads, NMSGeneralizedROIHeads, MaskIOUROIHeads
 from .modeling.proposal_generator.rpn import NMSGeneralizedRPN, GroupRPN, MultiClassRPNHead
 
+# from .loss_eval_hook import LossEvalHook
+from .optuna_hook import PruningHook
+
+# ---------------------------------------------------------------------------- #
+# optuna options
+# ---------------------------------------------------------------------------- #
+_C.OPTUNA = CN()
+_C.OPTUNA.STORAGE = None
+_C.OPTUNA.N_TRIALS = 0
+_C.OPTUNA.STUDY_NAME = None
+
+_C.SOLVER.RESTART_IF_NAN = False
+
 # ---------------------------------------------------------------------------- #
 # Shift generator options
 # ---------------------------------------------------------------------------- #

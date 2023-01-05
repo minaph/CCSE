@@ -23,17 +23,28 @@ class BaseInitializer:
     6) sets up seed
     7) others things should be done in the inherited initializer
     """
-    REQUIRED_FIELDS = ['OUTPUT_DIR', 'GPU_IDS', 'OUTPUT_ID', 'SAVE_LOG', 'SEED', 'VERSION', 'DEBUG']
-    MORE_REQUIRED_FIELDS = []
+
+    REQUIRED_FIELDS = [
+        "OUTPUT_DIR",
+        "GPU_IDS",
+        "OUTPUT_ID",
+        "SAVE_LOG",
+        "SEED",
+        "VERSION",
+        "DEBUG",
+    ]
+    MORE_REQUIRED_FIELDS = ["OPTUNA.STORAGE", "OPTUNA.N_TRIALS", "OPTUNA.STUDY_NAME"]
     # dict (key, value)
     REQUIRED_FIELDS_WITH_DEFAULT = {
-        'OUTPUT_DIR': './output',
-        'SEED': 1234,
-        'SAVE_LOG': True,
-        'VERSION': 2,
-        'DEBUG': False,
+        "OUTPUT_DIR": "./output",
+        "SEED": 1234,
+        "SAVE_LOG": True,
+        "VERSION": 2,
+        "DEBUG": False,
     }
-    MORE_REQUIRED_FIELDS_WITH_DEFAULT = {}
+    MORE_REQUIRED_FIELDS_WITH_DEFAULT = {
+        "OPTUNA.STORAGE": None, "OPTUNA.N_TRIALS": 0, "OPTUNA.STUDY_NAME": None
+    }
 
     def __init__(self, config_filepath):
         self.config_filepath = config_filepath
@@ -41,6 +52,9 @@ class BaseInitializer:
         self.do_something_before_check_field()
 
         base_config = self.get_default_config()
+        base_config["OPTUNA.STORAGE"] = None
+        base_config["OPTUNA.N_TRIALS"] = 0
+        base_config["OPTUNA.STUDY_NAME"] = None
 
         # setup config
         base_config.merge_from_file(config_filepath)
@@ -50,17 +64,25 @@ class BaseInitializer:
         self.check_required_field(self.config)
 
         # setup output dir
-        self.config.OUTPUT_DIR = get_output_dir(self.config.OUTPUT_DIR, self.config.OUTPUT_ID)
+        self.config.OUTPUT_DIR = get_output_dir(
+            self.config.OUTPUT_DIR, self.config.OUTPUT_ID
+        )
 
         # set up logger
         config = self.config
-        logger = get_logger(output_dir=config.OUTPUT_DIR,
-                            output_id=config.OUTPUT_ID,
-                            save_log=config.SAVE_LOG)
+        logger = get_logger(
+            output_dir=config.OUTPUT_DIR,
+            output_id=config.OUTPUT_ID,
+            save_log=config.SAVE_LOG,
+        )
         logger.info("Using config: \n{}".format(config))
         # save config
         config_save_path = save_config(self.config)
-        logger.info("*** [Path to delete is here!!!] Saving config file in {} ***".format(config_save_path))
+        logger.info(
+            "*** [Path to delete is here!!!] Saving config file in {} ***".format(
+                config_save_path
+            )
+        )
 
         # set gpu visibility
         # if not torch.cuda.is_available():
@@ -88,15 +110,19 @@ class BaseInitializer:
 
         # check required field
         for field in cls.REQUIRED_FIELDS + cls.MORE_REQUIRED_FIELDS:
-            if config.get(field) is None and field not in TOTAL_FIELDS_WITH_DEFAULT_DICT:
+            if (
+                config.get(field) is None
+                and field not in TOTAL_FIELDS_WITH_DEFAULT_DICT
+            ):
                 # sometime some field's default is None
-                raise ValueError('`{}` is not provided in config file'.format(field))
+                raise ValueError("`{}` is not provided in config file".format(field))
 
     @classmethod
     def prepare_default_field(cls, config):
         # prepare extra default field and value other than the fields in detectron2
-        TOTAL_FIELDS_WITH_DEFAULT_DICT = merge_dict(cls.REQUIRED_FIELDS_WITH_DEFAULT,
-                                                    cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT)
+        TOTAL_FIELDS_WITH_DEFAULT_DICT = merge_dict(
+            cls.REQUIRED_FIELDS_WITH_DEFAULT, cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT
+        )
         for field in cls.REQUIRED_FIELDS + cls.MORE_REQUIRED_FIELDS:
             if field not in config:
                 value = None
@@ -106,18 +132,26 @@ class BaseInitializer:
         return config
 
     @classmethod
-    def dynamic_modify_field_before_parsing(cls, _SET_DEFAULT_FIELDS_WITH_VALUES, _ADD_DEFAULT_FIELDS_WITH_VALUES):
+    def dynamic_modify_field_before_parsing(
+        cls, _SET_DEFAULT_FIELDS_WITH_VALUES, _ADD_DEFAULT_FIELDS_WITH_VALUES
+    ):
         # dynamic modify config fields before passing
 
         # set value for already exist fields
         for k, v in _SET_DEFAULT_FIELDS_WITH_VALUES.items():
-            if k not in cls.MORE_REQUIRED_FIELDS or k not in cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT:
+            if (
+                k not in cls.MORE_REQUIRED_FIELDS
+                or k not in cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT
+            ):
                 raise KeyError
             cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT[k] = v
 
         # add value for not exist fields
         for k, v in _ADD_DEFAULT_FIELDS_WITH_VALUES.items():
-            if k in cls.MORE_REQUIRED_FIELDS or k in cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT:
+            if (
+                k in cls.MORE_REQUIRED_FIELDS
+                or k in cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT
+            ):
                 raise ValueError
             cls.MORE_REQUIRED_FIELDS.append(k)
             cls.MORE_REQUIRED_FIELDS_WITH_DEFAULT[k] = v
