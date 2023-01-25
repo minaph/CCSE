@@ -1,6 +1,7 @@
 _BASE_: "./Base-RCNN-FPN.yaml"
 MODEL:
-  WEIGHTS: "/home/minaph/projects/CCSE/dataset/model_final.pth"
+  # WEIGHTS: "/home/minaph/projects/CCSE/dataset/model_final.pth"
+  WEIGHTS: "/app/model_final.pth"
   MASK_ON: True
   RESNETS:
     DEPTH: 50
