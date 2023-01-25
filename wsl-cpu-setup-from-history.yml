@@ -10,4 +10,5 @@ dependencies:
   - flask
   - flask-cors
   - fonttools
+  - tifffile
 prefix: /home/minaph/miniconda3/envs/ccse38
