@@ -4,7 +4,7 @@ MODEL:
   # we can also use the whole pretrained model (including both backbone and seg/det head)
   # from coco to improve the downstream task performance
   # WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
-  WEIGHTS: "/home/minaph/Projects/CCSE/dataset/anima/yuki/mask_rcnn_R_50_FPN_3x_kaiti/20221210.170224/model_final.pth"
+  WEIGHTS: "/home/minaph/Projects/CCSE/dataset/model_final.pth"
   MASK_ON: True
   RESNETS:
     DEPTH: 50
