@@ -1,0 +1,13 @@
+name: ccse38
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - torchvision
+  - cpuonly
+  - pytorch
+  - torchaudio
+  - flask
+  - flask-cors
+  - fonttools
+prefix: /home/minaph/miniconda3/envs/ccse38
