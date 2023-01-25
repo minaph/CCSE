@@ -1,0 +1,1 @@
+PYTHONPATH=$PYTHONPATH:./ python -u scripts/serve_inference_instance.py --config config/instance_segmentation/mask_rcnn_R_50_FPN_3x_kaiti_test.yaml
