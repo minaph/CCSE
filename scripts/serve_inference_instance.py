@@ -129,4 +129,4 @@ if __name__ == '__main__':
 
     initializer = InferenceInstanceInitializer(args.config)
     model_init(initializer)
-    app.run(port=3000)
+    app.run(host='0.0.0.0', port=3000)
